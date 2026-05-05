@@ -25,7 +25,7 @@ oauth_client = init_oauth(app)
 @app.route('/', methods=['GET', 'POST'])
 def test_search():
     user = session.get('user')
-    return render_template('test.html', user=user)
+    return render_template('index.html', user=user)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
