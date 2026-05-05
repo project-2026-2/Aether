@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ko" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Yuri's Ani Search</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script src="{{ url_for('static', filename='bootstrap.bundle.min.js') }}"></script>
+    <style>
+        /* ID 표시 스타일 강조 */
+        .user-id-badge {
+            font-weight: 700;
+            color: var(--accent-color);
+            margin-right: 15px;
+            padding: 5px 12px;
+            background: rgba(0, 113, 227, 0.1);
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        .ani-card { cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="margin-top: 60px; z-index: 1100;">
+        <div id="liveToast" class="toast align-items-center text-white border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body" id="toastMessage"></div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
+
+    <nav class="fixed-top-nav">
+        <a href="/test" style="text-decoration: none; font-weight: 800; color: var(--text-color); font-size: 1.2rem;">Yuri's Life</a>
+
+        <div class="d-flex align-items-center">
+            <button id="theme-toggle" class="btn btn-sm btn-outline-secondary me-3" style="border-radius: 20px;">Theme</button>
+
+            {% if session.get('user') %}
+                <span class="user-id-badge">👤 {{ session['user'] }}님</span>
+                <a href="/logout" class="btn btn-sm btn-danger" style="border-radius: 20px;">Logout</a>
+            {% else %}
+                <a href="/login" class="btn btn-sm btn-primary" style="border-radius: 20px;">Login</a>
+            {% endif %}
+            </div>
+    </nav>
+
+<!--    <main class="container" style="padding-top: 120px;">-->
+<!--        <div class="text-center mb-5">-->
+<!--            <h1 class="fw-bold display-5">Yuri's Life</h1>-->
+<!--            <p class="text-muted">찾고 싶은 애니메이션 제목을 입력하세요.</p>-->
+<!--            <div class="search-box mt-4">-->
+<!--                <form action="/test" method="POST" class="input-group">-->
+<!--                    <input type="text" name="search_query" class="form-control shadow-sm" placeholder="영문 제목 입력..." required style="border-radius: 15px 0 0 15px;">-->
+<!--                    <button class="btn btn-primary px-4" type="submit" style="border-radius: 0 15px 15px 0;">Search</button>-->
+<!--                </form>-->
+<!--            </div>-->
+<!--        </div>-->
+
+<!--        <div class="ani-grid">-->
+<!--            {% if anime_list %}-->
+<!--                {% for anime in anime_list %}-->
+<!--                <div class="ani-card" onclick='openModal({{ anime | tojson | safe }})'>-->
+<!--                    <img src="{{ anime.coverImage.large }}" alt="{{ anime.title.romaji }}">-->
+<!--                    <div class="ani-card-title text-truncate">{{ anime.title.romaji }}</div>-->
+<!--                </div>-->
+<!--                {% endfor %}-->
+<!--            {% endif %}-->
+<!--        </div>-->
+<!--    </main>-->
+
+<!--    <div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">-->
+<!--        <div class="modal-dialog modal-lg modal-dialog-centered">-->
+<!--            <div class="modal-content border-0 shadow-lg" style="border-radius: 25px;">-->
+<!--                <div id="m-banner" style="height: 200px; background-size: cover; background-position: center; border-radius: 25px 25px 0 0;"></div>-->
+<!--                <div class="modal-body p-4">-->
+<!--                    <div class="d-flex justify-content-between mb-2">-->
+<!--                        <h3 id="m-title" class="fw-bold mb-0"></h3>-->
+<!--                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>-->
+<!--                    </div>-->
+<!--                    <p id="m-native" class="text-muted small mb-4"></p>-->
+<!--                    <div class="row g-4">-->
+<!--                        <div class="col-md-4">-->
+<!--                            <img id="m-cover" src="" class="img-fluid rounded-4 shadow" alt="cover">-->
+<!--                        </div>-->
+<!--                        <div class="col-md-8">-->
+<!--                            <div class="mb-3">-->
+<!--                                <span class="badge bg-success py-2 px-3" id="m-score"></span>-->
+<!--                                <span class="badge bg-info py-2 px-3" id="m-episodes"></span>-->
+<!--                                <span class="badge bg-secondary py-2 px-3" id="m-status"></span>-->
+<!--                            </div>-->
+<!--                            <div id="m-desc" class="text-muted" style="font-size: 0.95rem; line-height: 1.6; max-height: 200px; overflow-y: auto;"></div>-->
+<!--                        </div>-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+    <script src="{{ url_for('static', filename='bootstrap.bundle.min.js') }}"></script>
+    <script>
+        {% with msgs = get_flashed_messages() %}
+            {% if msgs %}
+                {% for m in msgs %}
+                    // 세션에서 유저 이름을 가져옴 (없으면 빈 문자열)
+                    const userName = "{{ session.get('user', '') }}";
+
+                    if("{{m}}" === "login_success") {
+                        // 이름이 있을 경우 이름을 포함하고, 없으면 기본 메시지 출력
+                        const welcomeMsg = userName
+                            ? `✅ 반가워요, ${userName}님! 로그인이 완료되었습니다.`
+                            : "✅ 반가워요! 로그인이 완료되었습니다.";
+                        toast(welcomeMsg, "bg-success");
+                    }
+
+                    if("{{m}}" === "logged_out_success") {
+                        toast("👋 안전하게 로그아웃되었습니다.", "bg-info");
+                    }
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </script>
+</body>
+</html>
