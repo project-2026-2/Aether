@@ -1,7 +1,6 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from db_manager import add_user, check_user, add_google_user
-from ani_search import search_anime
 from oauth_manager import init_oauth
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
