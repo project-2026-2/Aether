@@ -8,19 +8,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="{{ url_for('static', filename='script.js') }}"></script>
     <script src="{{ url_for('static', filename='bootstrap.bundle.min.js') }}"></script>
-    <style>
-        /* ID 표시 스타일 강조 */
-        .user-id-badge {
-            font-weight: 700;
-            color: var(--accent-color);
-            margin-right: 15px;
-            padding: 5px 12px;
-            background: rgba(0, 113, 227, 0.1);
-            border-radius: 20px;
-            font-size: 0.9rem;
-        }
-        .ani-card { cursor: pointer; }
-    </style>
 </head>
 <body>
 
@@ -41,29 +28,90 @@
 
             {% if session.get('user') %}
                 <span class="user-id-badge">👤 {{ session['user'] }}님</span>
+                {% if session.get('login_type') == 'root' %}
+                    <a href="/dashboard" class="btn btn-sm btn-warning me-2" style="border-radius:20px;">Dashboard</a>
+                {% endif %}
                 <a href="/logout" class="btn btn-sm btn-danger" style="border-radius: 20px;">Logout</a>
             {% else %}
                 <a href="/login" class="btn btn-sm btn-primary" style="border-radius: 20px;">Login</a>
             {% endif %}
-            </div>
+        </div>
     </nav>
 
-    <script src="{{ url_for('static', filename='bootstrap.bundle.min.js') }}"></script>
+    <main style="padding-top: 80px; padding-bottom: 60px;">
+        <div class="ani-grid">
+            {% if anime_list %}
+                {% for anime in anime_list %}
+                <div class="ani-card" onclick='openModal({{ anime | tojson | safe }})'>
+                    <img src="{{ anime.coverImage.large }}" alt="{{ anime.title.romaji }}">
+                    <div class="ani-card-title text-truncate">{{ anime.title.romaji }}</div>
+                </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <!-- ── 페이지네이션 (GET 방식으로 쿼리 유지) ── -->
+        {% if current_query and anime_list %}
+        <div class="pagination-wrap">
+            {% set prev_page = current_page - 1 %}
+            {% set next_page = current_page + 1 %}
+
+            <a href="/?q={{ current_query }}&page={{ prev_page }}"
+               class="page-btn {% if current_page <= 1 %}disabled{% endif %}">‹</a>
+
+            {% for p in range([1, current_page - 2]|max, current_page + 3) %}
+                <a href="/?q={{ current_query }}&page={{ p }}"
+                   class="page-btn {% if p == current_page %}active{% endif %}">{{ p }}</a>
+            {% endfor %}
+
+            <a href="/?q={{ current_query }}&page={{ next_page }}"
+               class="page-btn {% if anime_list|length < 20 %}disabled{% endif %}">›</a>
+
+            <span class="page-info">{{ current_page }} 페이지</span>
+        </div>
+        {% endif %}
+
+    </main>
+
+    <div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 25px;">
+                <div id="m-banner" style="height: 200px; background-size: cover; background-position: center; border-radius: 25px 25px 0 0;"></div>
+                <div class="modal-body p-4">
+                    <div class="d-flex justify-content-between mb-2">
+                        <h3 id="m-title" class="fw-bold mb-0"></h3>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <p id="m-native" class="text-muted small mb-4"></p>
+                    <div class="row g-4">
+                        <div class="col-md-4">
+                            <img id="m-cover" src="" class="img-fluid rounded-4 shadow" alt="cover">
+                        </div>
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <span class="badge bg-success py-2 px-3" id="m-score"></span>
+                                <span class="badge bg-info py-2 px-3" id="m-episodes"></span>
+                                <span class="badge bg-secondary py-2 px-3" id="m-status"></span>
+                            </div>
+                            <div id="m-desc" class="text-muted" style="font-size: 0.95rem; line-height: 1.6; max-height: 200px; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         {% with msgs = get_flashed_messages() %}
             {% if msgs %}
                 {% for m in msgs %}
-                    // 세션에서 유저 이름을 가져옴 (없으면 빈 문자열)
                     const userName = "{{ session.get('user', '') }}";
-
                     if("{{m}}" === "login_success") {
-                        // 이름이 있을 경우 이름을 포함하고, 없으면 기본 메시지 출력
                         const welcomeMsg = userName
                             ? `✅ 반가워요, ${userName}님! 로그인이 완료되었습니다.`
                             : "✅ 반가워요! 로그인이 완료되었습니다.";
                         toast(welcomeMsg, "bg-success");
                     }
-
                     if("{{m}}" === "logged_out_success") {
                         toast("👋 안전하게 로그아웃되었습니다.", "bg-info");
                     }

@@ -48,3 +48,70 @@ function toast(msg, cls) {
         new bootstrap.Toast(el).show();
     }
 }
+document.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-bs-theme', saved);
+});
+
+// ── Traffic Chart 초기화 ──
+const ctx = document.getElementById('trafficChart').getContext('2d');
+const labels = Array.from({length: 20}, (_, i) => `${20-i}s`).reverse();
+const trafficData = Array(20).fill(0);
+
+const trafficChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels,
+        datasets: [{
+            label: 'req/s',
+            data: trafficData,
+            borderColor: '#0071e3',
+            backgroundColor: 'rgba(0,113,227,0.08)',
+            borderWidth: 2,
+            pointRadius: 0,
+            fill: true,
+            tension: 0.4
+        }]
+    },
+    options: {
+        animation: false,
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+            y: { beginAtZero: true, grid: { color: 'rgba(128,128,128,0.1)' }, ticks: { font: { size: 10 } } }
+        }
+    }
+});
+
+// ── /api/stats 폴링 (2초마다) ──
+async function fetchStats() {
+    try {
+        const res = await fetch('/api/stats');
+        const d = await res.json();
+
+        // CPU
+        document.getElementById('cpu-bar').style.width = d.cpu + '%';
+        document.getElementById('cpu-val').innerHTML = `${d.cpu}<span style="font-size:1rem;font-weight:400;">%</span>`;
+        document.getElementById('cpu-cores').textContent = `코어 수: ${d.cpu_cores}`;
+
+        // RAM
+        document.getElementById('ram-bar').style.width = d.ram + '%';
+        document.getElementById('ram-val').innerHTML = `${d.ram}<span style="font-size:1rem;font-weight:400;">%</span>`;
+        document.getElementById('ram-detail').textContent =
+            `사용: ${d.ram_used_gb}GB / 전체: ${d.ram_total_gb}GB`;
+
+        // 트래픽 차트 슬라이딩
+        trafficData.push(d.rps);
+        trafficData.shift();
+        trafficChart.data.datasets[0].data = [...trafficData];
+        trafficChart.update('none');
+
+        // 요청 수 갱신
+        document.getElementById('stat-requests').textContent = d.request_count;
+
+    } catch(e) { console.error('stats fetch error', e); }
+}
+
+fetchStats();
+setInterval(fetchStats, 2000);

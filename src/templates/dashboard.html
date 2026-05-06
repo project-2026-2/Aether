@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dashboard - Aether</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="{{ url_for('static', filename='bootstrap.bundle.min.js') }}"></script>
+</head>
+<body>
+
+<!-- ── Navbar (test.html과 동일) ── -->
+<nav class="fixed-top-nav">
+    <a href="/" style="text-decoration:none;font-weight:800;color:var(--text-color);font-size:1.2rem;">Aether</a>
+    <div class="d-flex align-items-center gap-2">
+        <button id="theme-toggle" class="btn btn-sm btn-outline-secondary" style="border-radius:20px;">Theme</button>
+        <span class="user-id-badge" style="font-weight:700;color:var(--accent-color);padding:5px 12px;background:rgba(0,113,227,.1);border-radius:20px;font-size:.9rem;">
+            👑 {{ session['user'] }}님
+        </span>
+        <a href="/logout" class="btn btn-sm btn-danger" style="border-radius:20px;">Logout</a>
+    </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="container" style="padding-top:90px; padding-bottom:60px; max-width:1200px;">
+
+    <!-- Header -->
+    <div class="d-flex align-items-center gap-3 mb-5">
+        <div>
+            <h1 class="fw-bold mb-1" style="font-size:2rem;">
+                <span class="live-dot"></span>Admin Dashboard
+            </h1>
+            <p class="text-muted mb-0" style="font-size:.9rem;">실시간 서버·사용자 현황을 모니터링합니다.</p>
+        </div>
+    </div>
+
+    <!-- ── 상단 Stat Cards ── -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="icon">👤</div>
+                <div class="label">전체 사용자</div>
+                <div class="value" id="stat-total">{{ users | length }}</div>
+                <div class="sub">등록된 계정 수</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="icon">🌐</div>
+                <div class="label">Google 계정</div>
+                <div class="value" id="stat-google">{{ users | selectattr('login_type','eq','google') | list | length }}</div>
+                <div class="sub">소셜 로그인</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="icon">🔑</div>
+                <div class="label">일반 계정</div>
+                <div class="value" id="stat-local">{{ users | selectattr('login_type','eq','local') | list | length }}</div>
+                <div class="sub">자체 가입</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card">
+                <div class="icon">🔍</div>
+                <div class="label">총 요청 수</div>
+                <div class="value" id="stat-requests">{{ request_count }}</div>
+                <div class="sub">서버 시작 후 누적</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── CPU / RAM ── -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="gauge-wrap h-100">
+                <div class="gauge-label">🖥 CPU 사용률</div>
+                <div class="gauge-bar-bg">
+                    <div class="gauge-bar cpu" id="cpu-bar" style="width:0%"></div>
+                </div>
+                <div class="gauge-val" id="cpu-val">--<span style="font-size:1rem;font-weight:400;">%</span></div>
+                <div class="text-muted" style="font-size:.8rem;" id="cpu-cores"></div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="gauge-wrap h-100">
+                <div class="gauge-label">💾 RAM 사용률</div>
+                <div class="gauge-bar-bg">
+                    <div class="gauge-bar ram" id="ram-bar" style="width:0%"></div>
+                </div>
+                <div class="gauge-val" id="ram-val">--<span style="font-size:1rem;font-weight:400;">%</span></div>
+                <div class="text-muted" style="font-size:.8rem;" id="ram-detail"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── 트래픽 차트 + 검색 로그 ── -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-7">
+            <div class="chart-wrap">
+                <div class="section-title mb-3">📈 실시간 트래픽 (초당 요청)</div>
+                <canvas id="trafficChart" height="120"></canvas>
+            </div>
+        </div>
+        <div class="col-md-5">
+            <div class="chart-wrap h-100">
+                <div class="section-title">🔎 최근 검색 기록</div>
+                <div id="search-log">
+                    {% if recent_searches %}
+                        {% for s in recent_searches %}
+                        <div class="log-item">
+                            <div class="log-icon">🔍</div>
+                            <div>
+                                <div style="font-weight:600;">{{ s.query }}</div>
+                                <div class="text-muted" style="font-size:.78rem;">{{ s.user }} · {{ s.time }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted" style="font-size:.88rem;">검색 기록이 없습니다.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── 사용자 목록 ── -->
+    <div class="section-title">👥 사용자 목록</div>
+    <div class="user-table-wrap">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>아이디</th>
+                    <th>이메일</th>
+                    <th>로그인 타입</th>
+                    <th>가입일</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td class="text-muted">{{ loop.index }}</td>
+                    <td><strong>{{ u.username }}</strong></td>
+                    <td class="text-muted">{{ u.email if u.email else '—' }}</td>
+                    <td>
+                        {% if u.login_type == 'google' %}
+                            <span class="login-badge badge-google">Google</span>
+                        {% elif u.login_type == 'root' %}
+                            <span class="login-badge badge-root">Root</span>
+                        {% else %}
+                            <span class="login-badge badge-local">Local</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted" style="font-size:.82rem;">
+                        {{ u.created_at.strftime('%Y-%m-%d %H:%M') if u.created_at else '—' }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</main>
+
+<!-- Chart.js CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

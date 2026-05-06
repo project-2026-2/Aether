@@ -58,6 +58,16 @@ def check_user(username, password):
         return user
     return None
 
+def get_all_users():
+    """전체 사용자 목록 반환"""
+    return list(users_col.find({}, {'password': 0}))
+
+def get_recent_searches(limit=8):
+    """최근 검색 기록 반환"""
+    searches_col = db['search_logs']
+    results = searches_col.find().sort('time', -1).limit(limit)
+    return [{'query': r['query'], 'user': r['user'], 'time': r['time'].strftime('%m/%d %H:%M')} for r in results]
+
 def add_google_user(username, email):
     """구글 로그인 사용자 저장 및 조회"""
     user = users_col.find_one({'email': email})
