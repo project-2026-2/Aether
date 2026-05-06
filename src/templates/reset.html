@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>비밀번호 재설정</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+    <style>
+        body { background-color: #f8f9fa; display: flex; align-items: center; justify-content: center; height: 100vh; }
+        .card { max-width: 400px; width: 100%; border-radius: 15px; border: none; }
+    </style>
+</head>
+<body>
+    <div class="card shadow p-4">
+        <h3 class="text-center fw-bold mb-4">새 비밀번호 설정</h3>
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-warning small py-2">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        <form method="POST">
+            <div class="mb-3">
+                <label class="form-label small text-muted">새 비밀번호</label>
+                <input type="password" name="password" class="form-control" placeholder="새 비밀번호" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label small text-muted">비밀번호 확인</label>
+                <input type="password" name="password_confirm" class="form-control" placeholder="비밀번호 재입력" required>
+            </div>
+            <button type="submit" class="btn btn-success w-100 py-2 fw-bold">비밀번호 변경</button>
+        </form>
+    </div>
+</body>
+</html>
