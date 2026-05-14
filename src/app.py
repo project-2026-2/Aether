@@ -1,4 +1,5 @@
 import os
+import requests
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from db_manager import add_user, check_user, add_google_user, create_reset_token, reset_password
 from oauth_manager import init_oauth
@@ -20,10 +21,12 @@ app.config.update(
 
 oauth_client = init_oauth(app)
 
+
 @app.route('/', methods=['GET', 'POST'])
 def test_search():
     user = session.get('user')
     return render_template('index.html', user=user)
+
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -44,6 +47,7 @@ def register():
             flash('이미 존재하는 아이디 또는 이메일입니다.')
     return render_template('register.html')
 
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -60,10 +64,12 @@ def login():
         flash('정보가 올바르지 않습니다.')
     return render_template('login.html')
 
+
 @app.route('/login/google')
 def google_login():
     redirect_uri = url_for('google_auth', _external=True)
     return oauth_client.google.authorize_redirect(redirect_uri)
+
 
 @app.route('/auth/google')
 def google_auth():
@@ -85,15 +91,32 @@ def google_auth():
         flash("로그인 실패")
     return redirect(url_for('login'))
 
+
 @app.route('/logout')
 def logout():
     session.clear()
     flash('logged_out_success')
     return redirect(url_for('test_search'))
 
+
 def send_reset_email(to_email, token):
     reset_url = f"http://localhost:5050/reset/{token}"
-    print(f"\n✅ 비밀번호 재설정 링크: {reset_url}\n")
+
+    response = requests.post(
+        "https://api.brevo.com/v3/smtp/email",
+        headers={
+            "api-key": "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",
+            "Content-Type": "application/json"
+        },
+        json={
+            "sender": {"name": "Aether", "email": "hayul9888@gmail.com"},
+            "to": [{"email": to_email}],
+            "subject": "비밀번호 재설정",
+            "textContent": f"아래 링크를 클릭하여 비밀번호를 재설정하세요:\n\n{reset_url}"
+        }
+    )
+    print(response.status_code, response.text)
+
 
 @app.route('/forgot', methods=['GET', 'POST'])
 def forgot():
@@ -105,6 +128,7 @@ def forgot():
         flash('이메일이 존재하면 재설정 링크를 전송했습니다.')
         return redirect(url_for('forgot'))
     return render_template('forgot.html')
+
 
 @app.route('/reset/<token>', methods=['GET', 'POST'])
 def reset(token):
@@ -120,6 +144,7 @@ def reset(token):
         flash('링크가 만료되었습니다.')
         return redirect(url_for('forgot'))
     return render_template('reset.html', token=token)
+
 
 if __name__ == '__main__':
     app.run("0.0.0.0", debug=True, port=5050)
