@@ -500,6 +500,16 @@
 <div class="toast-container" id="toast-container"></div>
 <script src="{{ url_for('static', filename='script.js') }}"></script>
 <script src="{{ url_for('static', filename='bootstrap.bundle.min.js') }}"></script>
+<script src="{{ url_for('serve_be_static', filename='js/utils.js') }}"></script>
+<script src="{{ url_for('serve_be_static', filename='js/toast.js') }}"></script>
+<script src="{{ url_for('serve_be_static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('serve_be_static', filename='js/state.js') }}"></script>
+<script src="{{ url_for('serve_be_static', filename='js/render.js') }}"></script>
+<script src="{{ url_for('serve_be_static', filename='js/actions.js') }}"></script>
+<script src="{{ url_for('serve_be_static', filename='js/upload.js') }}"></script>
+<script src="{{ url_for('serve_be_static', filename='js/modals.js') }}"></script>
+<script src="{{ url_for('serve_be_static', filename='js/context.js') }}"></script>
+<script src="{{ url_for('serve_be_static', filename='js/app.js') }}"></script>
 <script>
   // 다크모드 토글
   const themeToggle = document.getElementById('aether-theme-toggle');
@@ -521,26 +531,6 @@
   const savedTheme = localStorage.getItem('theme') || 'light';
   htmlElement.setAttribute('data-bs-theme', savedTheme);
   updateThemeToggle();
-
-  // BE 폴더의 JS 파일들을 동적으로 로드
-  const scripts = [
-    '/be-static/js/utils.js',
-    '/be-static/js/toast.js',
-    '/be-static/js/api.js',
-    '/be-static/js/state.js',
-    '/be-static/js/render.js',
-    '/be-static/js/actions.js',
-    '/be-static/js/upload.js',
-    '/be-static/js/modals.js',
-    '/be-static/js/context.js',
-    '/be-static/js/app.js'
-  ];
-
-  scripts.forEach(src => {
-    const script = document.createElement('script');
-    script.src = src;
-    document.body.appendChild(script);
-  });
 </script>
 </body>
 </html>

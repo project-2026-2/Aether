@@ -200,14 +200,20 @@ class EFSStorage:
 
 efs = EFSStorage(EFS_ROOT)
 
-
 # ── BE static 파일 서빙 ────────────────────────────────────
 @app.route("/be-static/<path:filename>")
 def serve_be_static(filename):
-    """BE/main/style 폴더의 파일 서빙"""
-    from flask import send_from_directory
+    """BE/main/style 폴더의 파일 서빙 (CSS, JS 등)"""
+    from flask import send_from_directory, abort
     be_style_path = Path(__file__).parent / 'BE' / 'main' / 'style'
-    return send_from_directory(be_style_path, filename)
+    
+    # 파일이 존재하는지 확인
+    file_path = be_style_path / filename
+    if file_path.exists() and file_path.is_file():
+        return send_from_directory(be_style_path, filename)
+    
+    # 파일을 찾을 수 없으면 404 에러 반환
+    abort(404)
 
 
 @app.route('/', methods=['GET', 'POST'])
