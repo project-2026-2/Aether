@@ -458,6 +458,15 @@
       <span class="toggle-track"><span class="toggle-thumb"></span></span>
       <span>링크 공유 허용</span>
     </label>
+    <div class="share-add-row" style="display: flex; gap: 8px; margin: 12px 0;">
+      <input type="email" id="share-email-input" class="modal-input" placeholder="이메일 주소" style="flex: 1;" />
+      <select id="share-role-select" class="modal-input" style="flex: 0 0 120px;">
+        <option value="reader">보기</option>
+        <option value="commenter">댓글</option>
+        <option value="writer">편집</option>
+      </select>
+      <button class="btn-primary" id="btn-share-add">추가</button>
+    </div>
     <div class="perm-list" id="perm-list"></div>
     <div class="modal-actions"><button class="btn-ghost" data-close="modal-share">닫기</button></div>
   </div>
@@ -471,6 +480,18 @@
     <div class="modal-actions">
       <button class="btn-ghost" data-close="modal-folder">취소</button>
       <button class="btn-primary" id="btn-folder-confirm">만들기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 모달: 새 파일 (문서/시트/슬라이드) ────────────────────── -->
+<div class="modal-overlay" id="modal-newfile">
+  <div class="modal">
+    <h3 id="newfile-title">문서 만들기</h3>
+    <input type="text" id="newfile-name-input" class="modal-input" value="제목 없는 문서" />
+    <div class="modal-actions">
+      <button class="btn-ghost" data-close="modal-newfile">취소</button>
+      <button class="btn-primary" id="btn-newfile-confirm">만들기</button>
     </div>
   </div>
 </div>

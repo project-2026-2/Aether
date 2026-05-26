@@ -92,6 +92,13 @@ function initNewDropdown() {
   const btnNew  = document.getElementById('btn-new');
   const dropdown = document.getElementById('new-dropdown');
 
+  // Defensive checks: if elements are not present yet, delay initialization
+  if (!btnNew || !dropdown) {
+    // Try again shortly; this avoids throwing when called before DOM is ready.
+    setTimeout(initNewDropdown, 50);
+    return;
+  }
+
   btnNew.addEventListener('click', e => {
     e.stopPropagation();
     btnNew.classList.toggle('open');
