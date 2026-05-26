@@ -35,6 +35,7 @@ oauth_client = init_oauth(app)
 # ── EFS 설정 ──────────────────────────────────────────────────────
 EFS_ROOT         = Path(os.environ.get("EFS_ROOT", "efs_data"))
 STORAGE_LIMIT    = int(os.environ.get("STORAGE_LIMIT", str(50 * 1024 ** 3)))
+USER_DATA_ISOLATION = os.environ.get("USER_DATA_ISOLATION", "true").lower() == "true"
 
 def ok(data=None):      return jsonify({"ok": True,  "data": data})
 def err(msg, code=400): return jsonify({"ok": False, "error": msg}), code
@@ -42,16 +43,33 @@ def now_iso():          return datetime.now(timezone.utc).isoformat()
 
 
 # ══════════════════════════════════════════════════════════════
-#  EFS 스토리지 백엔드
+#  EFS 스토리지 백엔드 (사용자별 격리)
 # ══════════════════════════════════════════════════════════════
 class EFSStorage:
 
-    def __init__(self, root: Path):
-        self.root      = root
-        self.files_dir = root / "files"
-        self.meta_path = root / "meta.json"
-        root.mkdir(parents=True, exist_ok=True)
-        self.files_dir.mkdir(exist_ok=True)
+    def __init__(self, root: Path, username: str = None):
+        """
+        EFS 스토리지 초기화
+
+        Args:
+            root: EFS 루트 경로
+            username: 사용자명 (격리 모드일 때 필수)
+        """
+        self.root = root
+        self.username = username
+
+        # 사용자별 격리 모드 활성화 시 사용자 디렉토리 사용
+        if USER_DATA_ISOLATION and username:
+            self.user_root = root / "users" / username
+        else:
+            self.user_root = root
+
+        self.files_dir = self.user_root / "files"
+        self.meta_path = self.user_root / "meta.json"
+
+        # 디렉토리 생성 (권한 설정)
+        self.user_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self.files_dir.mkdir(exist_ok=True, mode=0o700)
 
     def _load(self) -> dict:
         if not self.meta_path.exists():
@@ -309,22 +327,47 @@ def logout():
 
 
 def send_reset_email(to_email, token):
-    reset_url = f"http://localhost:5050/reset/{token}"
+    """환경변수를 사용하여 비밀번호 리셋 이메일 발송"""
+    reset_url_base = os.getenv('RESET_URL_BASE', 'http://localhost:5050')
+    reset_url = f"{reset_url_base}/reset/{token}"
+
+    api_key = os.getenv('BREVO_API_KEY')
+    sender_name = os.getenv('SENDER_NAME', 'Aether')
+    sender_email = os.getenv('SENDER_EMAIL', 'noreply@aether.com')
+
+    if not api_key:
+        print("❌ Error: BREVO_API_KEY not configured in .env")
+        return False
 
     response = requests.post(
         "https://api.brevo.com/v3/smtp/email",
         headers={
-            "api-key": "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",
+            "api-key": api_key,
             "Content-Type": "application/json"
         },
         json={
-            "sender": {"name": "Aether", "email": "hayul9888@gmail.com"},
+            "sender": {"name": sender_name, "email": sender_email},
             "to": [{"email": to_email}],
-            "subject": "비밀번호 재설정",
-            "textContent": f"아래 링크를 클릭하여 비밀번호를 재설정하세요:\n\n{reset_url}"
+            "subject": "Aether - 비밀번호 재설정",
+            "textContent": f"""안녕하세요,
+
+아래 링크를 클릭하여 비밀번호를 재설정하세요:
+
+{reset_url}
+
+이 링크는 1시간 후에 만료됩니다.
+
+감사합니다,
+Aether 팀"""
         }
     )
-    print(response.status_code, response.text)
+
+    if response.status_code == 201:
+        print(f"✅ Password reset email sent to {to_email}")
+        return True
+    else:
+        print(f"❌ Email send failed: {response.status_code} - {response.text}")
+        return False
 
 
 @app.route('/forgot', methods=['GET', 'POST'])
@@ -366,6 +409,9 @@ def list_files():
         if not user:
             return err("로그인 필요", 401)
 
+        # 사용자별 EFS 스토리지 인스턴스 생성
+        user_efs = EFSStorage(EFS_ROOT, username=user)
+
         folder_id = request.args.get("folderId")
         trashed   = request.args.get("trashed", "false") == "true"
         starred   = request.args.get("starred", "false") == "true"
@@ -373,9 +419,9 @@ def list_files():
         page_size = int(request.args.get("pageSize", 50))
         order_by  = request.args.get("orderBy", "modifiedTime desc")
 
-        return ok(efs.list_files(folder_id=folder_id, trashed=trashed,
-                                 starred=starred, keyword=keyword,
-                                 order_by=order_by, page_size=page_size))
+        return ok(user_efs.list_files(folder_id=folder_id, trashed=trashed,
+                                      starred=starred, keyword=keyword,
+                                      order_by=order_by, page_size=page_size))
     except Exception as e: return err(str(e))
 
 
@@ -386,10 +432,12 @@ def upload_file():
         if not user:
             return err("로그인 필요", 401)
 
+        user_efs = EFSStorage(EFS_ROOT, username=user)
+
         file = request.files.get("file")
         fid = request.form.get("folderId")
         if not file: return err("파일이 없습니다")
-        return ok(efs.upload(file, file.filename, fid))
+        return ok(user_efs.upload(file, file.filename, fid))
     except Exception as e: return err(str(e))
 
 
@@ -400,7 +448,9 @@ def download_file(fid):
         if not user:
             return err("로그인 필요", 401)
 
-        fp, rec = efs.get_file(fid)
+        user_efs = EFSStorage(EFS_ROOT, username=user)
+
+        fp, rec = user_efs.get_file(fid)
         if not fp or not fp.exists(): return err("파일을 찾을 수 없습니다", 404)
         return send_file(fp, as_attachment=True, download_name=rec["name"],
                          mimetype=rec.get("mimeType", "application/octet-stream"))
@@ -414,8 +464,10 @@ def update_file(fid):
         if not user:
             return err("로그인 필요", 401)
 
+        user_efs = EFSStorage(EFS_ROOT, username=user)
+
         body = request.json or {}
-        f = efs.update(fid, body)
+        f = user_efs.update(fid, body)
         return ok(f) if f else err("파일을 찾을 수 없습니다", 404)
     except Exception as e: return err(str(e))
 
@@ -427,7 +479,9 @@ def delete_file(fid):
         if not user:
             return err("로그인 필요", 401)
 
-        efs.delete(fid)
+        user_efs = EFSStorage(EFS_ROOT, username=user)
+
+        user_efs.delete(fid)
         return ok({"id": fid})
     except Exception as e: return err(str(e))
 
@@ -439,7 +493,9 @@ def empty_trash():
         if not user:
             return err("로그인 필요", 401)
 
-        efs.empty_trash()
+        user_efs = EFSStorage(EFS_ROOT, username=user)
+
+        user_efs.empty_trash()
         return ok({"message": "휴지통을 비웠습니다"})
     except Exception as e: return err(str(e))
 
@@ -451,9 +507,11 @@ def create_folder():
         if not user:
             return err("로그인 필요", 401)
 
+        user_efs = EFSStorage(EFS_ROOT, username=user)
+
         data = request.json or {}
         name, pid = data.get("name", "새 폴더"), data.get("parentId")
-        return ok(efs.create_folder(name, pid))
+        return ok(user_efs.create_folder(name, pid))
     except Exception as e: return err(str(e))
 
 
@@ -464,7 +522,9 @@ def get_permissions(fid):
         if not user:
             return err("로그인 필요", 401)
 
-        return ok(efs.list_perms(fid))
+        user_efs = EFSStorage(EFS_ROOT, username=user)
+
+        return ok(user_efs.list_perms(fid))
     except Exception as e: return err(str(e))
 
 
@@ -475,10 +535,12 @@ def add_permission(fid):
         if not user:
             return err("로그인 필요", 401)
 
+        user_efs = EFSStorage(EFS_ROOT, username=user)
+
         data = request.json or {}
-        return ok(efs.add_perm(fid, {"type": data.get("type","user"),
-                                      "role": data.get("role","reader"),
-                                      "emailAddress": data.get("email","")}))
+        return ok(user_efs.add_perm(fid, {"type": data.get("type","user"),
+                                          "role": data.get("role","reader"),
+                                          "emailAddress": data.get("email","")}))
     except Exception as e: return err(str(e))
 
 
@@ -489,7 +551,9 @@ def remove_permission(fid, pid):
         if not user:
             return err("로그인 필요", 401)
 
-        efs.remove_perm(fid, pid)
+        user_efs = EFSStorage(EFS_ROOT, username=user)
+
+        user_efs.remove_perm(fid, pid)
         return ok({"permissionId": pid})
     except Exception as e: return err(str(e))
 
@@ -511,7 +575,9 @@ def preview_file(fid):
         if not user:
             return err("로그인 필요", 401)
 
-        fp, rec = efs.get_file(fid)
+        user_efs = EFSStorage(EFS_ROOT, username=user)
+
+        fp, rec = user_efs.get_file(fid)
         if not fp or not fp.exists():
             return err("파일을 찾을 수 없습니다", 404)
         name = rec.get("name", "")
@@ -548,7 +614,9 @@ def get_storage():
         if not user:
             return err("로그인 필요", 401)
 
-        return ok(efs.storage_info())
+        user_efs = EFSStorage(EFS_ROOT, username=user)
+
+        return ok(user_efs.storage_info())
     except Exception as e: return err(str(e))
 
 
